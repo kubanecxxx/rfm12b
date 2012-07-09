@@ -1,0 +1,134 @@
+/*
+ * rfm_port.c
+ *
+ *  Created on: 5.6.2012
+ *      Author: kubanec
+ */
+
+#include "stm32f10x.h"
+#include "rfm_port.h"
+
+
+#define SPI_PIN_LOW(x) (SPI_GPIO->BRR |= x)
+#define SPI_PIN_HIGH(x) (SPI_GPIO->BSRR |= x)
+#define SPI_PIN_READ(x,y) ((SPI_GPIO->IDR & x) >> y)
+
+#ifdef SPI_HARD
+void low_level_spi_init(void)
+{
+	SPI_InitTypeDef spi;
+	GPIO_InitTypeDef gpio;
+
+	/**
+	 * @todo zjistit jak se dělá výběr která periférka má jit na kterej pin
+	 */
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+	gpio.GPIO_Mode = GPIO_Mode_AF_PP;
+	gpio.GPIO_Pin = SCK | MOSI ;
+	gpio.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOA, &gpio);
+
+	//FFIT a NIRQ
+	gpio.GPIO_Mode = GPIO_Mode_IPU;
+	gpio.GPIO_Pin = FFIT | NIRQ;
+	GPIO_Init(GPIOA, &gpio);
+
+	gpio.GPIO_Pin = MISO;
+	gpio.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+	GPIO_Init(GPIOA , &gpio);
+
+	gpio.GPIO_Pin = NSS;
+	gpio.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_Init(GPIOA , &gpio);
+	SPI_PIN_HIGH(NSS);
+
+	RCC_APB2PeriphClockCmd(RFM_PERIPH_CLOCK, ENABLE);
+	spi.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_256;
+	spi.SPI_CPHA = SPI_CPHA_1Edge;
+	spi.SPI_CPOL = SPI_CPOL_Low;
+	spi.SPI_CRCPolynomial = 7;
+	spi.SPI_DataSize = SPI_DataSize_16b;
+	spi.SPI_Direction = SPI_Direction_2Lines_FullDuplex;
+	spi.SPI_FirstBit = SPI_FirstBit_MSB;
+	spi.SPI_Mode = SPI_Mode_Master;
+	spi.SPI_NSS = SPI_NSS_Soft;
+
+	SPI_Init(SPI_RFM, &spi);
+	SPI_Cmd(SPI_RFM, ENABLE);
+}
+
+
+
+uint16_t low_level_spi_in_out(uint16_t data)
+{
+	while (SPI_I2S_GetFlagStatus(SPI_RFM, SPI_I2S_FLAG_TXE) == RESET)
+		continue;
+
+	SPI_PIN_LOW(NSS);
+	SPI_I2S_SendData(SPI_RFM, data);
+	SPI_PIN_HIGH(NSS);
+
+	return SPI_I2S_ReceiveData(SPI_RFM);
+}
+#endif
+
+#ifdef SPI_SOFT
+void low_level_spi_init(void)
+{
+	GPIO_InitTypeDef gpio;
+
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+	gpio.GPIO_Mode = GPIO_Mode_Out_PP;
+	gpio.GPIO_Pin = MOSI | SCK | NSS;
+	gpio.GPIO_Speed = GPIO_Speed_10MHz;
+	GPIO_Init(SPI_GPIO, &gpio);
+
+	gpio.GPIO_Mode = GPIO_Mode_IPU;
+	gpio.GPIO_Pin = FFIT | NIRQ | MISO;
+	GPIO_Init(SPI_GPIO, &gpio);
+}
+
+
+
+uint16_t low_level_spi_in_out(uint16_t cmd)
+{
+	unsigned char i;
+	unsigned int recv = 0;
+
+	SPI_PIN_LOW(SCK);
+	SPI_PIN_LOW(NSS);
+	for(i=0; i<16; i++) {
+	  if(cmd&0x8000)
+		  SPI_PIN_HIGH(MOSI) ;
+	  else
+		  SPI_PIN_LOW(MOSI);
+	  SPI_PIN_HIGH(SCK);
+
+	  recv <<= 1;
+	  recv += SPI_PIN_READ(MISO, MISO_S);
+
+	  SPI_PIN_LOW(SCK);
+	  cmd<<=1;
+	}
+	SPI_PIN_HIGH(NSS);
+	return recv;
+}
+#endif
+
+
+/**
+ * @todo časem by se to mohlo zkusit trochu inteligentně přes přerušeni a pak DMA
+ */
+void low_level_wait_ffit_high(void)
+{
+	while (GPIO_ReadInputDataBit(GPIOA, FFIT) == 0)
+		continue;
+}
+
+void low_level_wait_nirq_low(void)
+{
+	while (GPIO_ReadInputDataBit(GPIOA, NIRQ) == 1)
+		continue;
+}
+
+

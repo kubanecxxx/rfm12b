@@ -1,0 +1,44 @@
+/*
+ * rfm_port.c
+ *
+ *  Created on: 5.6.2012
+ *      Author: kubanec
+ */
+
+#ifndef RFM_PORT_C_
+#define RFM_PORT_C_
+
+#include "stm32f10x.h"
+
+#define SPI_SOFT
+//#define SPI_HARD
+
+#ifdef SPI_HARD
+#define SPI_RFM SPI1
+#define RFM_PERIPH_CLOCK RCC_APB2Periph_SPI1
+#endif
+
+#define SCK GPIO_Pin_5
+#define MISO GPIO_Pin_6
+#define MOSI GPIO_Pin_7
+#define NSS GPIO_Pin_4
+#define MISO_S GPIO_PinSource5
+#define SPI_GPIO GPIOA
+
+#define FFIT	GPIO_Pin_8 //GPIOA
+#define NIRQ	GPIO_Pin_9 //GPIOA
+
+void low_level_spi_init(void);
+void low_level_wait_ffit_high(void);
+void low_level_wait_nirq_low(void);
+uint16_t low_level_spi_in_out(uint16_t data);
+
+#if (defined SPI_SOFT && defined SPI_HARD)
+	#error oboje SPI rfm_port.h
+#endif
+
+#if (!defined SPI_SOFT && !defined SPI_HARD)
+	#error ani jedno SPI rfm_port.h
+#endif
+
+#endif /* RFM_PORT_C_ */
