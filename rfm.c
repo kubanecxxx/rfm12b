@@ -23,7 +23,7 @@ void rf_init(void)
 	rf_writecmd(0xA640);//frequency select
 #else
 	rf_writecmd(0x80D7); //EL,EF,433band,12.0pF
-	rf_writecmd(0xA640); //frequency select
+	rf_writecmd(0xA680); //frequency select
 #endif
 //	rf_writecmd(0xA3E8); //frequency select
 	rf_writecmd(0xC623); //4.8kbps
