@@ -17,8 +17,14 @@ unsigned int rf_writecmd(unsigned int cmd)
 void rf_init(void)
 {
 	low_level_spi_init();
+
+#ifdef RFM_868
 	rf_writecmd(0x80E7); //EL,EF,868band,12.0pF
-    rf_writecmd(0xA640); //frequency select
+	rf_writecmd(0xA640);//frequency select
+#else
+	rf_writecmd(0x80D7); //EL,EF,433band,12.0pF
+	rf_writecmd(0xA640); //frequency select
+#endif
 //	rf_writecmd(0xA3E8); //frequency select
 	rf_writecmd(0xC623); //4.8kbps
 	rf_writecmd(0x94A0); //VDI,FAST,134kHz,0dBm,-103dBm
@@ -31,6 +37,14 @@ void rf_init(void)
 	rf_writecmd(0xE000); //NOT USED
 	rf_writecmd(0xC800); //NOT USED
 	rf_writecmd(0xC040); //1.66MHz,2.2V
+}
+
+/*
+ * @brief read status register
+ */
+uint16_t rf_getStatus(void)
+{
+	return rf_writecmd(0);
 }
 //------------------------------------
 //Data send

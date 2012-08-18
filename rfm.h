@@ -12,5 +12,6 @@ void rf_transmitter(void);
 void rf_fifo_reset(void);
 void rf_prepare(void);
 unsigned char rf_read(void);
+uint16_t rf_getStatus(void);
 
 #endif 
