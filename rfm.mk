@@ -1,4 +1,5 @@
 FOLD=rfm12b
 
 INCDIR+=$(FOLD)
-CSRC += $(FOLD)/rfm.c $(FOLD)/rfm_layer2.c $(PORT)/rfm_port.c
+CSRC += $(wildcard $(FOLD)/*.c) 
+CPPSRC += $(wildcard $(FOLD)/*.cpp)

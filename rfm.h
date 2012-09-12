@@ -1,7 +1,9 @@
 #ifndef __RFM_SET
 #define __RFM_SET
 
-#define wait_spi_complete() while(!(SPSR & _BV(SPIF))); bit_clr(SPSR,SPIF)
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 unsigned int rf_writecmd(unsigned int cmd);
 void rf_init(void);
@@ -13,5 +15,9 @@ void rf_fifo_reset(void);
 void rf_prepare(void);
 unsigned char rf_read(void);
 uint16_t rf_getStatus(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif 

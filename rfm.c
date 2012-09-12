@@ -1,5 +1,4 @@
-#include "rfm_port.h"
-#include "rfm.h"
+#include "rfmIncludeC.h"
 
 //------------------------------------
 //spi send and receive two bytes simultaneously
