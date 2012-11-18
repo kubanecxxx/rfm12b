@@ -15,6 +15,9 @@ namespace threads
 {
 class RecThread: public chibios_rt::EnhancedThread<128>, public rfmNew
 {
+public:
+	typedef void (*rfm_cb)(packet_t & packet, bool checksumOK);
+
 private:
 	msg_t Main(void);
 
@@ -22,9 +25,11 @@ private:
 	static uint16_t listen;
 	static void Wait(uint8_t slave_address = 0);
 	static bool ReadPacket(packet_t & packet);
+	static rfm_cb CallBack;
 
 public:
-	RecThread();
+
+	RecThread(rfm_cb cb = NULL);
 	static uint32_t GetOffset()
 	{
 		return offset;

@@ -14,10 +14,13 @@ namespace threads
 {
 uint32_t RecThread::offset = 0;
 uint16_t RecThread::listen = 0;
+RecThread::rfm_cb RecThread::CallBack = NULL;
 
-RecThread::RecThread() :
+RecThread::RecThread(rfm_cb cb) :
 		EnhancedThread("rfm receive", HIGHPRIO)
 {
+	CallBack = cb;
+	rf_ffitThreadInit();
 }
 
 bool RecThread::ReadPacket(packet_t & packet)
@@ -43,38 +46,37 @@ bool RecThread::ReadPacket(packet_t & packet)
 msg_t RecThread::Main(void)
 {
 	packet_t packet;
-	/*
-	 * naladit offset
-	 */
-	while (TRUE)
+
+	if (!LinkLayer::IsMaster())
 	{
-		rf_receiver();
-		rf_writecmd(0);
-		rf_fifo_reset();
-		rf_writecmd(0);
-
-		//wait ffit
-
 		/*
-		 * receive packet
+		 * naladit offset pokud to neni mástr
 		 */
-		if (ReadPacket(packet))
+		while (TRUE)
 		{
-			offset = TIME - (chibios_rt::System::GetTime() % TIME);
-			break;
+			rf_receiver();
+			rf_writecmd(0);
+			rf_fifo_reset();
+			rf_writecmd(0);
+
+			/*
+			 * wait for ffit
+			 */
+			chEvtWaitAny(0b10);
+
+			if (ReadPacket(packet))
+			{
+				offset = TIME - (chibios_rt::System::GetTime() % TIME);
+				break;
+			}
 		}
 	}
 
 	new SendThread;
+	uint16_t temp = 0;
 
 	while (TRUE)
 	{
-		/*
-		 * pokud adresa neni mástr tak se doladit na mástra
-		 * až bude syncrhoni tak si uložit offset
-		 *
-		 * master musi vědět od kterejch bude přijimat
-		 */
 
 		/*
 		 * projet všechny na kteréch má polochat pokud je to master,
@@ -87,6 +89,19 @@ msg_t RecThread::Main(void)
 			 * adresy bude mit zatim zadany
 			 * v budocnu by se udělal nějaké autodiscover
 			 */
+			uint8_t i;
+			if (temp == 0)
+			{
+				temp = offset;
+				i = 0;
+			}
+
+			while (!(temp & 1))
+			{
+				temp >>= 1;
+				i++;
+			}
+			Wait(i);
 		}
 		else
 		{
@@ -100,19 +115,27 @@ msg_t RecThread::Main(void)
 		/*
 		 * wait for ffit (event + timeout)
 		 */
-
+		/*
+		 * wait for ffit
+		 */
+		chEvtWaitAny(0b10);
 		systime_t time = chibios_rt::System::GetTime();
 
 		/*
 		 * read packet
 		 */
+		bool checksum = ReadPacket(packet);
+		/*
+		 * broadcast, new packet arrived or callback
+		 */
+		if (CallBack)
+			CallBack(packet, checksum);
 
 		rf_sleep();
 		/*
 		 * tune offset
 		 */
 		offset = TIME - (time % TIME);
-
 	}
 	return 0;
 }
