@@ -16,14 +16,12 @@ namespace threads
 {
 uint32_t RecThread::offset = 0;
 uint16_t RecThread::listen = 0;
-RecThread::rfm_cb RecThread::CallBack = NULL;
 uint8_t RecThread::synchronized = 0;
 chibios_rt::Mutex * RecThread::mutex;
 
-RecThread::RecThread(rfm_cb cb) :
+RecThread::RecThread() :
 		EnhancedThread("rfm receive", NORMALPRIO)
 {
-	CallBack = cb;
 	rf_ffitThreadInit(thread_ref);
 	mutex = new chibios_rt::Mutex;
 }
@@ -160,8 +158,7 @@ void RecThread::Read()
 		}
 
 		//poslat chcal back pokud je naštelované
-		if (CallBack)
-			CallBack(packet, checksum);
+		LinkLayer::Callback(packet, checksum);
 	}
 	else
 	{
@@ -210,8 +207,7 @@ void RecThread::Synchro()
 
 			mutex->Unlock();
 
-			if (CallBack)
-				CallBack(packet, true);
+			LinkLayer::Callback(packet, true);
 
 			break;
 		}

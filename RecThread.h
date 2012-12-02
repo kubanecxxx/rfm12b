@@ -13,21 +13,17 @@ namespace rfm
 
 namespace threads
 {
-class RecThread: public chibios_rt::EnhancedThread<256>, public rfmNew
+class RecThread: public chibios_rt::EnhancedThread<256>
 {
-public:
-	typedef void (*rfm_cb)(packet_t packet, bool checksumOK);
-
 private:
 	msg_t Main(void);
 
 	static uint32_t offset;
+	//bitově určuje ktery slavy má poslouchat
 	static uint16_t listen;
 	static uint8_t synchronized;
 	static void Wait(uint8_t slave_address);
 	static bool ReadPacket(packet_t & packet);
-	static rfm_cb CallBack;
-
 	static void Read();
 	static void Synchro();
 	static void Mate();
@@ -35,7 +31,7 @@ private:
 public:
 
 	static chibios_rt::Mutex * mutex;
-	RecThread(rfm_cb cb = NULL);
+	RecThread();
 	inline static uint32_t GetOffset()
 	{
 		return offset;
@@ -43,6 +39,14 @@ public:
 	inline static uint8_t IsSynchronized()
 	{
 		return synchronized;
+	}
+	inline static void SetSlaves(uint16_t slaves)
+	{
+		listen = slaves;
+	}
+	inline static uint16_t GetSlaves()
+	{
+		return listen;
 	}
 };
 

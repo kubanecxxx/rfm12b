@@ -32,15 +32,9 @@ uint8_t packet_t::GetChecksum()
 	}
 
 	checksum = temp;
-
 	checksum ^= 0b01010101;
 
 	return checksum;
-}
-
-bool packet_t::ChecksumOK(uint8_t checksum)
-{
-	return (GetChecksum() == checksum);
 }
 
 int8_t LinkLayer::SourceAddress = -1;
@@ -70,13 +64,11 @@ void LinkLayer::Init(uint8_t address)
  */
 bool LinkLayer::SendPacket(packet_t * packet)
 {
-	//poslat zprávu do posilaciho vlákna
 	if (IsSynchronized())
 	{
 		if (thd_send->SendMessage((msg_t) packet))
 			return true;
 	}
-
 	return false;
 }
 
@@ -85,25 +77,29 @@ void LinkLayer::GetPacket()
 	//dat paket když bude něco přijatyho
 }
 
-uint8_t LinkLayer::GetAddress()
-{
-	return (uint8_t) SourceAddress;
-}
-
-uint8_t LinkLayer::IsMaster()
-{
-	return (SourceAddress == MASTER);
-}
-
 uint8_t LinkLayer::IsSynchronized()
 {
-	if (IsMaster()) //pak sem přidat něco z vlákna receive
+	if (IsMaster())
 		return 1;
 
 	if (threads::RecThread::IsSynchronized())
 		return 1;
 
 	return 0;
+}
+
+/**
+ * @brief callback from receiving thread
+ *
+ * @param deep copy of packet
+ * @param checksum state
+ *
+ * @note It should not take so much time because it's called
+ * directly from recieving thread. It could break the synchronization
+ */
+void LinkLayer::Callback(packet_t packet, bool checksumOk)
+{
+
 }
 
 } /* namespace rfm */

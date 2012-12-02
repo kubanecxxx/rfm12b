@@ -13,7 +13,7 @@ namespace rfm
 namespace threads
 {
 
-class SendThread: public chibios_rt::EnhancedThread<128>, public rfmNew
+class SendThread: public chibios_rt::EnhancedThread<128>
 {
 public:
 	SendThread();

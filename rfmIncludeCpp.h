@@ -27,7 +27,6 @@ const int8_t MASTER = 1;
  * include set
  */
 
-#include "rfmNew.h"
 #include "LinkLayer.h"
 #include "RecThread.h"
 #include "SendThread.h"
