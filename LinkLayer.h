@@ -25,6 +25,7 @@ class LinkLayer
 public:
 	static void Init(uint8_t address);
 	static bool SendPacket(packet_t * packet);
+	static void Init(uint8_t address, uint16_t listen);
 	static void GetPacket(void);
 	inline static uint8_t GetAddress()
 	{
@@ -42,6 +43,7 @@ private:
 	static threads::RecThread * thd_rec;
 	static void Callback(packet_t packet, bool checksumOk);
 	friend class threads::RecThread;
+
 
 };
 

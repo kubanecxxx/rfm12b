@@ -55,7 +55,12 @@ void LinkLayer::Init(uint8_t address)
 		thd_send = new threads::SendThread;
 		thd_rec = new threads::RecThread();
 	}
+}
 
+void LinkLayer::Init(uint8_t address, uint16_t listen)
+{
+	Init(address);
+	thd_rec->SetSlaves(listen);
 }
 
 /**

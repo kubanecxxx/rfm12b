@@ -89,7 +89,7 @@ msg_t RecThread::Main(void)
 
 void RecThread::Mate()
 {
-	uint32_t temp;
+	static uint16_t temp;
 	/*
 	 * projet všechny na kteréch má poslochat pokud je to master,
 	 * pokud je to slave tak poslocha jenom na svym timeslotu
@@ -102,19 +102,16 @@ void RecThread::Mate()
 		 * adresy bude mit zatim zadany
 		 * v budocnu by se udělal nějaké autodiscover
 		 */
-		uint8_t i;
 		if (temp == 0)
-		{
-			temp = offset;
-			i = 0;
-		}
+			temp = listen;
 
+		uint8_t i = 0;
 		while (!(temp & 1))
 		{
 			temp >>= 1;
 			i++;
 		}
-		Wait(5);
+		Wait(i);
 	}
 	else
 	{
