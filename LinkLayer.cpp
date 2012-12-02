@@ -104,7 +104,24 @@ uint8_t LinkLayer::IsSynchronized()
  */
 void LinkLayer::Callback(packet_t packet, bool checksumOk)
 {
+	static uint32_t pole[200];
+	static uint16_t idx = 0;
+	static uint16_t dobry = 0, spatny = 0;
 
+	if (idx > 100)
+	{
+		asm("nop");
+		idx = 0;
+	}
+	else
+	{
+		if (checksumOk)
+			dobry++;
+		else
+			spatny++;
+		pole[idx++] = chibios_rt::System::GetTime();
+		pole[idx++] = checksumOk;
+	}
 }
 
 } /* namespace rfm */

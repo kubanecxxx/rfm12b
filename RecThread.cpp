@@ -89,7 +89,7 @@ msg_t RecThread::Main(void)
 
 void RecThread::Mate()
 {
-	static uint16_t temp;
+	static uint16_t temp = 0;
 	/*
 	 * projet všechny na kteréch má poslochat pokud je to master,
 	 * pokud je to slave tak poslocha jenom na svym timeslotu
@@ -111,6 +111,7 @@ void RecThread::Mate()
 			temp >>= 1;
 			i++;
 		}
+		temp >>= 1;
 		Wait(i);
 	}
 	else
@@ -122,32 +123,62 @@ void RecThread::Mate()
 
 void RecThread::Read()
 {
-	static uint8_t error_counter = 0;
+#ifdef DEBUG_RFM
+	static uint32_t pole[200];
+	static uint16_t index;
+	static uint16_t timeout = 0;
+	static uint16_t dobry = 0, spatny = 0;
+#endif
 	packet_t packet;
+	static uint8_t error_counter = 0;
 
 	rf_receiver();
 	rf_writecmd(0);
 	rf_fifo_reset();
+
+#ifdef DEBUG_RFM
+	if (index > 100)
+	{
+		asm ("nop");
+		index = 0;
+	}
+#endif
 
 	/*
 	 * wait for ffit
 	 * pokud něco přinde tak to přijme
 	 * pokud nic tak to zkusi přiště znova
 	 */
+#ifdef DEBUG_RFM
+	pole[index++] = 5;
+	pole[index++] = chibios_rt::System::GetTime();
+#endif
 	if (low_level_wait_ffit_high(10))
 	{
 		chEvtAddFlags(FFIT_EVENT_FLAG);
 		//read packet
 		systime_t time2 = chibios_rt::System::GetTime();
+#ifdef DEBUG_RFM
+		pole[index++] = 6;
+		pole[index++] = chibios_rt::System::GetTime();
+#endif
 		bool checksum = ReadPacket(packet);
-
+#ifdef DEBUG_RFM
+		pole[index++] = 7;
+		pole[index++] = chibios_rt::System::GetTime();
+#endif
 		if (!checksum)
 		{
 			error_counter++;
+#ifdef DEBUG_RFM
+			spatny++;
+#endif
 		}
 		else
 		{
-
+#ifdef DEBUG_RFM
+			dobry++;
+#endif
 			error_counter = 0;
 			offset = time2;
 			offset -= 5;
@@ -160,6 +191,11 @@ void RecThread::Read()
 	else
 	{
 		error_counter++;
+#ifdef DEBUG_RFM
+		pole[index++] = 50;
+		pole[index++] = chibios_rt::System::GetTime();
+		timeout++;
+#endif
 	}
 
 	if (error_counter > 5 && !LinkLayer::IsMaster())
