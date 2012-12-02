@@ -6,16 +6,16 @@
  */
 
 #include "rfmIncludeCpp.h"
+#include "ch.h"
 
 namespace rfm
 {
-
 
 packet_t::packet_t()
 {
 	checksum = 0;
 	DestAddr = 0;
-
+	//vyplnit packet nulama
 	for (unsigned i = 0; i < LOAD_LENGTH; i++)
 		load[i] = 0;
 }
@@ -23,9 +23,6 @@ packet_t::packet_t()
 uint8_t packet_t::GetChecksum()
 {
 	uint8_t temp = 0;
-
-	if (checksum != 0)
-		return checksum;
 
 	temp = LinkLayer::GetAddress();
 	temp += DestAddr;
@@ -48,6 +45,8 @@ bool packet_t::ChecksumOK(uint8_t checksum)
 }
 
 int8_t LinkLayer::SourceAddress = -1;
+threads::SendThread * LinkLayer::thd_send;
+threads::RecThread * LinkLayer::thd_rec;
 
 void LinkLayer::Init(uint8_t address)
 {
@@ -59,15 +58,23 @@ void LinkLayer::Init(uint8_t address)
 	if (address < 8)
 	{
 		SourceAddress = address;
-		new threads::RecThread;
 		//rozběhnout vlákna
+		thd_send = new threads::SendThread;
+		thd_rec = new threads::RecThread();
 	}
 
 }
 
-void LinkLayer::SendPacket(packet_t & packet)
+bool LinkLayer::SendPacket(packet_t * packet)
 {
 	//poslat zprávu do posilaciho vlákna, release mutex
+	if (IsSynchronized())
+	{
+		thd_send->SendMessage((msg_t) packet);
+		return true;
+	}
+
+	return false;
 }
 
 void LinkLayer::GetPacket()
@@ -83,6 +90,14 @@ uint8_t LinkLayer::GetAddress()
 uint8_t LinkLayer::IsMaster()
 {
 	return (SourceAddress == MASTER);
+}
+
+uint8_t LinkLayer::IsSynchronized()
+{
+	if (IsMaster()) //pak sem přidat něco z vlákna receive
+		return 1;
+
+	return 0;
 }
 
 } /* namespace rfm */

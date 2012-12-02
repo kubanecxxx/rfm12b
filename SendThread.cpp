@@ -67,11 +67,7 @@ void SendThread::Wait(uint8_t destination)
 msg_t SendThread::Main(void)
 {
 
-	packet_t * packet = new packet_t; //tohle se naplni pomoci msg
 
-	packet->DestAddr = 2;
-
-	systime_t time2;
 	while (TRUE)
 	{
 		/*
@@ -98,6 +94,9 @@ msg_t SendThread::Main(void)
 		/*
 		 * wait for message packet
 		 */
+		Thread * sender = WaitMessage();
+		msg_t message = GetMessage(sender);
+		packet_t * packet = (packet_t *) message;
 
 		/*
 		 * gain mutex
@@ -113,7 +112,9 @@ msg_t SendThread::Main(void)
 		 */
 		systime_t time1 = chibios_rt::System::GetTime();
 		Send(*packet);
-		time2 = chibios_rt::System::GetTime() - time1;
+		systime_t time2 = chibios_rt::System::GetTime() - time1;
+
+		ReleaseMessage(sender, 0);
 
 		/*
 		 * release mutex

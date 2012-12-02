@@ -19,10 +19,10 @@ void rf_init(void)
 
 #ifdef RFM_868
 	rf_writecmd(0x80E7); //EL,EF,868band,12.0pF
-	rf_writecmd(0xA640);//frequency select
+	rf_writecmd(0xA640); //frequency select
 #else
-	rf_writecmd(0x80D7); //EL,EF,433band,12.0pF
-	rf_writecmd(0xA680); //frequency select
+			rf_writecmd(0x80D7); //EL,EF,433band,12.0pF
+			rf_writecmd(0xA680);//frequency select
 #endif
 //	rf_writecmd(0xA3E8); //frequency select
 	rf_writecmd(0xC623); //4.8kbps
@@ -101,8 +101,11 @@ void rf_prepare()
 //----------------------------------
 //Read
 //----------------------------------
-unsigned char rf_read(void)
+unsigned char rf_read(systime_t timeout)
 {
-	low_level_wait_ffit_high();
-	return (rf_writecmd(0xB000) & 0xff);
+	uint8_t tim = low_level_wait_ffit_high(timeout);
+	if (tim)
+		return (rf_writecmd(0xB000) & 0xff);
+	else
+		return -1;
 }

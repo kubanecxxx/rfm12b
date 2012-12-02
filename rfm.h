@@ -13,7 +13,7 @@ void rf_receiver(void);
 void rf_transmitter(void);
 void rf_fifo_reset(void);
 void rf_prepare(void);
-unsigned char rf_read(void);
+unsigned char rf_read(systime_t timeout);
 uint16_t rf_getStatus(void);
 
 #ifdef __cplusplus
