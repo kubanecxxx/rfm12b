@@ -16,18 +16,9 @@ namespace threads
 class SendThread;
 class RecThread;
 }
-class packet_t
-{
-public:
-	uint8_t GetChecksum(void);
-	bool ChecksumOK(uint8_t checksum);
-	packet_t();
 
-	uint8_t DestAddr;
-	uint8_t load[LOAD_LENGTH];
-private:
-	uint8_t checksum;
-};
+class LinkLayer;
+class packet_t;
 
 class LinkLayer
 {
@@ -44,6 +35,29 @@ private:
 	static threads::SendThread * thd_send;
 	static threads::RecThread * thd_rec;
 
+};
+
+class packet_t
+{
+public:
+	uint8_t GetChecksum(void);
+	bool ChecksumOK(uint8_t checksum);
+	packet_t();
+
+	uint8_t DestAddr;
+	uint8_t load[LOAD_LENGTH];
+
+	/*
+	 * vrátí false pokud není synchronizace a nepodařilo se poslat paket
+	 * vrátí true pokud všecko v pořádku
+	 */
+	inline bool Send()
+	{
+		return LinkLayer::SendPacket(this);
+	}
+
+private:
+	uint8_t checksum;
 };
 
 } /* namespace rfm */

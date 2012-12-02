@@ -6,6 +6,7 @@
  */
 
 #include "rfmIncludeCpp.h"
+#include "ch.hpp"
 
 namespace rfm
 {
@@ -40,15 +41,16 @@ void SendThread::Wait(uint8_t destination)
 	 * podle adresy a offsetu vypočitat čas do kdy má čekat
 	 * 20ms trvá jeden paket -> rezerva 25ms
 	 */
+
 	systime_t time = chibios_rt::System::GetTime();
-	systime_t temp = time % TIME;
-	time += TIME - temp;
+	systime_t off = RecThread::GetOffset();
 
 	if (LinkLayer::IsMaster())
 	{
-		/*
-		 * master vysilá v prvni sadě timeslotů podle adresy příjemců (slavů)
-		 */
+		systime_t temp = time % TIME;
+		time += TIME - temp;
+
+		// master vysilá v prvni sadě timeslotů podle adresy příjemců (slavů)
 		time += destination * TIMESLOT;
 	}
 	else
@@ -56,17 +58,21 @@ void SendThread::Wait(uint8_t destination)
 		/*
 		 * slave vysilá v druhé sadě timeslotů podle svoji lokálni adresy
 		 * offset už musi byt naladěné
+		 * v offsetu je čas začátku uspěšnyho přijmu pro správnou adresu slave
+		 * takže stači čekat jenom pulku TIME
 		 */
-		time += RecThread::GetOffset() + (TIME / 2)
-				+ LinkLayer::GetAddress() * TIMESLOT;
+		time = off + (TIME / 2) - 3; //5ms rezerva pro mastera
+		while (time < chibios_rt::System::GetTime())
+		{
+			time += TIME;
+		}
 	}
 
-	chibios_rt::BaseThread::SleepUntil(time);
+	SleepUntil(time);
 }
 
 msg_t SendThread::Main(void)
 {
-
 
 	while (TRUE)
 	{
@@ -99,10 +105,6 @@ msg_t SendThread::Main(void)
 		packet_t * packet = (packet_t *) message;
 
 		/*
-		 * gain mutex
-		 */
-
-		/*
 		 * wait for right time
 		 */
 		Wait(packet->DestAddr);
@@ -110,15 +112,14 @@ msg_t SendThread::Main(void)
 		/*
 		 * send packet
 		 */
-		systime_t time1 = chibios_rt::System::GetTime();
-		Send(*packet);
-		systime_t time2 = chibios_rt::System::GetTime() - time1;
-
-		ReleaseMessage(sender, 0);
-
-		/*
-		 * release mutex
-		 */
+		msg_t result = 0;
+		if (RecThread::mutex->TryLock() && RecThread::IsSynchronized())
+		{
+			Send(*packet);
+			RecThread::mutex->Unlock();
+			result = 1;
+		}
+		ReleaseMessage(sender, result);
 	}
 	return 0;
 }

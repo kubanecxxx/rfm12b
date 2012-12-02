@@ -6,7 +6,6 @@
  */
 
 #include "rfmIncludeCpp.h"
-#include "ch.h"
 
 namespace rfm
 {
@@ -65,13 +64,17 @@ void LinkLayer::Init(uint8_t address)
 
 }
 
+/**
+ * vrátí true pokud se všecko povede
+ * false pokud je mimo synchro nebo nedostal mutex
+ */
 bool LinkLayer::SendPacket(packet_t * packet)
 {
-	//poslat zprávu do posilaciho vlákna, release mutex
+	//poslat zprávu do posilaciho vlákna
 	if (IsSynchronized())
 	{
-		thd_send->SendMessage((msg_t) packet);
-		return true;
+		if (thd_send->SendMessage((msg_t) packet))
+			return true;
 	}
 
 	return false;
@@ -95,6 +98,9 @@ uint8_t LinkLayer::IsMaster()
 uint8_t LinkLayer::IsSynchronized()
 {
 	if (IsMaster()) //pak sem přidat něco z vlákna receive
+		return 1;
+
+	if (threads::RecThread::IsSynchronized())
 		return 1;
 
 	return 0;
