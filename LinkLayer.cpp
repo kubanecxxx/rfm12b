@@ -139,6 +139,7 @@ void LinkLayer::Callback(packet_t packet, bool checksumOk)
 
 void LinkLayer::CallbackSend(packet_t * packet_, bool ok)
 {
+#if 0
 	static int be = 0 ,dobry = 0 ;
 
 	if (!ok)
@@ -154,6 +155,7 @@ void LinkLayer::CallbackSend(packet_t * packet_, bool ok)
 	packet.Send();
 #else
 	packet.Send();
+#endif
 #endif
 }
 

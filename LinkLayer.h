@@ -51,6 +51,12 @@ private:
 class packet_t
 {
 public:
+
+	typedef enum
+	{
+		IDLE, GET, SET, OKSET, OKGET, NOKSET, NOKGET, IDLEOK
+	} command_t;
+
 	uint8_t GetChecksum(void);
 	inline bool ChecksumOK(uint8_t checksum)
 	{
@@ -108,6 +114,83 @@ public:
 
 		return temp;
 	}
+	inline void MakeIdle()
+	{
+		data.b.load.b.Command = IDLE;
+	}
+	inline bool IsIdle()
+	{
+		return (data.b.load.b.Command == IDLE);
+	}
+	/**
+	 * @brief nastaví paket na příkaz SET (v masteru)
+	 */
+	inline void Set(uint8_t destination, uint16_t mod_address,
+			uint32_t mod_data)
+	{
+		data.b.DestAddr = destination;
+		data.b.load.b.Command = SET;
+		data.b.load.b.address[0] = mod_address;
+		data.b.load.b.address[1] = mod_address >> 8;
+		data.b.load.b.data[0] = mod_data;
+		data.b.load.b.data[1] = mod_data >> 8;
+		data.b.load.b.data[2] = mod_data >> 16;
+		data.b.load.b.data[3] = mod_data >> 24;
+	}
+	/**
+	 * @brief nastaví paket na příkaz GET (v masteru)
+	 */
+	inline void Get(uint8_t destination, uint16_t mod_address)
+	{
+		data.b.DestAddr = destination;
+		data.b.load.b.Command = GET;
+		data.b.load.b.address[0] = mod_address;
+		data.b.load.b.address[1] = mod_address >> 8;
+	}
+
+	/**
+	 * @brief nastaví packet na odpověď idle (ve slavu)
+	 */
+	inline void AnswerIdle()
+	{
+		data.b.load.b.Command = IDLEOK;
+	}
+
+	/**
+	 * @brief nastaví paket na odpověd getu (ve slavu)
+	 */
+	inline void AnswerGet(uint32_t mod_data, bool ok)
+	{
+		data.b.DestAddr = MASTER;
+		if (ok)
+			data.b.load.b.Command = OKGET;
+		else
+			data.b.load.b.Command = NOKGET;
+		data.b.load.b.data[0] = mod_data;
+		data.b.load.b.data[1] = mod_data >> 8;
+		data.b.load.b.data[2] = mod_data >> 16;
+		data.b.load.b.data[3] = mod_data >> 24;
+	}
+	/**
+	 * @brief nastaví paket na odpověď setu (ve slavu)
+	 */
+	inline void AnswerSet(bool ok)
+	{
+		data.b.DestAddr = MASTER;
+		if (ok)
+			data.b.load.b.Command = OKSET;
+		else
+			data.b.load.b.Command = NOKSET;
+	}
+
+	/**
+	 * @brief zjistí jakén je to command
+	 */
+	inline command_t Command()
+	{
+		return (command_t)data.b.load.b.Command;
+	}
+
 
 private:
 	uint8_t checksum;

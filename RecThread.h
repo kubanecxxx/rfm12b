@@ -32,6 +32,7 @@ public:
 
 	static chibios_rt::Mutex * mutex;
 	RecThread();
+	friend class SendThread;
 	inline static uint32_t GetOffset()
 	{
 		return offset;

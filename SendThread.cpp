@@ -47,13 +47,15 @@ void SendThread::Wait(uint8_t destination)
 	systime_t time = chibios_rt::System::GetTime();
 	systime_t off = RecThread::GetOffset();
 
+	//vypočte nejbližši možné čas kdy bude moct zase vysilat
 	if (LinkLayer::IsMaster())
 	{
 		systime_t temp = time % TIME;
-		time += TIME - temp;
-
-		// master vysilá v prvni sadě timeslotů podle adresy příjemců (slavů)
+		time -= temp;
 		time += destination * TIMESLOT;
+
+		if (time < chibios_rt::System::GetTime())
+			time += TIME;
 	}
 	else
 	{
@@ -75,6 +77,9 @@ void SendThread::Wait(uint8_t destination)
 
 msg_t SendThread::Main(void)
 {
+	packet_t idle_packet;
+	idle_packet.MakeIdle();
+	idle_packet.data.b.DestAddr = -1;
 
 	while (TRUE)
 	{
@@ -103,30 +108,79 @@ msg_t SendThread::Main(void)
 		 * wait for message packet
 		 */
 		msg_t message;
-		msg_t resp = chMBFetch(&mbox, &message, TIME_INFINITE );
+		systime_t time = TIME_INFINITE;
+		packet_t * packet;
+		/*
+		 * pokud máster tak se nečeká až uživatel něco pošle
+		 * a rovnou se posilá na vybrany adresy idle zpráva
+		 * kvůli synchronizaci
+		 *
+		 */
+		/*
+		 * pokud nic nepřišlo pošle se idle packet
+		 * v případě slave to nemůže nastat protože čeká do nekonečna
+		 * dokud nějaké paket nepřinde do mailu
+		 *
+		 * pokud chceme poslat paket kterej by předběhl idle tak se znova
+		 * hodi do fronty až na něho přinde řada
+		 */
+		if (LinkLayer::IsMaster())
+		{
+			packet = &idle_packet;
+			packet->data.b.DestAddr++;
 
-		packet_t * packet = (packet_t *) message;
+			/*
+			 * postupně projíždí všechny adresy ktery má registrovany
+			 * od nejnižšiho aby se vysilalo hezky postupně
+			 */
+			while (!((RecThread::listen >> packet->data.b.DestAddr) & 1))
+			{
+				packet->data.b.DestAddr++;
+				if (packet->data.b.DestAddr == 8)
+					packet->data.b.DestAddr = 0;
+			}
+			time = TIME_IMMEDIATE;
+		}
+
+		msg_t resp = chMBFetch(&mbox, &message, time);
+		packet = (packet_t *) message;
 		bool neco = false;
 
-		if (resp == RDY_OK)
+		/*
+		 * tady to zase postne zpátky do fronty pokud se mu to nehodi
+		 * do správnyho času a musel by zahodit idle pakety ktery jsou před
+		 * uživatelskym
+		 */
+		if (resp == RDY_OK
+				&& packet->data.b.DestAddr != idle_packet.data.b.DestAddr)
 		{
-			/*
-			 * wait for right time
-			 */
-			Wait(packet->data.b.DestAddr);
-
-			/*
-			 * send packet
-			 */
-			if (RecThread::mutex->TryLock() && RecThread::IsSynchronized())
-			{
-				Send(*packet);
-				palTogglePad(GPIOD,15);
-				RecThread::mutex->Unlock();
-				neco = true;
-			}
+			resp = !RDY_OK;
+			chMBPostAhead(&mbox, (msg_t) packet, TIME_IMMEDIATE );
+			packet = &idle_packet;
 		}
-		LinkLayer::CallbackSend(packet, neco);
+
+		/*
+		 * wait for right time
+		 */
+		Wait(packet->data.b.DestAddr);
+
+		/*
+		 * send packet
+		 */
+		if (RecThread::mutex->TryLock() && RecThread::IsSynchronized())
+		{
+			palTogglePad(GPIOD, 15);
+			Send(*packet);
+			RecThread::mutex->Unlock();
+			neco = true;
+		}
+
+		/*
+		 * pokud to byla uživatelská zpráva tak
+		 * vyhodi callback že už to skončilo
+		 */
+		if (resp == RDY_OK)
+			LinkLayer::CallbackSend(packet, neco);
 	}
 
 	return 0;
