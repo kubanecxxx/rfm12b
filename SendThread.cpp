@@ -11,6 +11,9 @@
 namespace rfm
 {
 
+static msg_t mbuffer[10];
+MAILBOX_DECL(mbox, mbuffer, 10);
+
 namespace threads
 {
 
@@ -25,9 +28,8 @@ void SendThread::Send(packet_t & packet)
 	rf_prepare();
 	rf_writecmd(0);
 	rf_send(LinkLayer::GetAddress());
-	rf_send(packet.DestAddr);
-	for (unsigned i = 0; i < LOAD_LENGTH; i++)
-		rf_send(packet.load[i]);
+	for (unsigned i = 0; i < PACKET_LENGTH; i++)
+		rf_send(packet.data.rawData[i]);
 	rf_send(packet.GetChecksum());
 	rf_send(0xAA);
 	rf_send(0xAA);
@@ -100,27 +102,33 @@ msg_t SendThread::Main(void)
 		/*
 		 * wait for message packet
 		 */
-		Thread * sender = WaitMessage();
-		msg_t message = GetMessage(sender);
+		msg_t message;
+		msg_t resp = chMBFetch(&mbox, &message, TIME_INFINITE );
+
 		packet_t * packet = (packet_t *) message;
+		bool neco = false;
 
-		/*
-		 * wait for right time
-		 */
-		Wait(packet->DestAddr);
-
-		/*
-		 * send packet
-		 */
-		msg_t result = 0;
-		if (RecThread::mutex->TryLock() && RecThread::IsSynchronized())
+		if (resp == RDY_OK)
 		{
-			Send(*packet);
-			RecThread::mutex->Unlock();
-			result = 1;
+			/*
+			 * wait for right time
+			 */
+			Wait(packet->data.b.DestAddr);
+
+			/*
+			 * send packet
+			 */
+			if (RecThread::mutex->TryLock() && RecThread::IsSynchronized())
+			{
+				Send(*packet);
+				palTogglePad(GPIOD,15);
+				RecThread::mutex->Unlock();
+				neco = true;
+			}
 		}
-		ReleaseMessage(sender, result);
+		LinkLayer::CallbackSend(packet, neco);
 	}
+
 	return 0;
 }
 

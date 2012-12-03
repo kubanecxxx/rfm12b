@@ -7,16 +7,18 @@
 
 #include "rfmIncludeCpp.h"
 
+extern rfm::packet_t packet;
+
 namespace rfm
 {
+extern Mailbox mbox;
 
 packet_t::packet_t()
 {
 	checksum = 0;
-	DestAddr = 0;
 	//vyplnit packet nulama
-	for (unsigned i = 0; i < LOAD_LENGTH; i++)
-		load[i] = 0;
+	for (unsigned i = 0; i < PACKET_LENGTH; i++)
+		data.rawData[i] = 0;
 }
 
 uint8_t packet_t::GetChecksum()
@@ -24,11 +26,10 @@ uint8_t packet_t::GetChecksum()
 	uint8_t temp = 0;
 
 	temp = LinkLayer::GetAddress();
-	temp += DestAddr;
 
-	for (unsigned i = 0; i < LOAD_LENGTH; i++)
+	for (unsigned i = 0; i < PACKET_LENGTH; i++)
 	{
-		temp += load[i];
+		temp += data.rawData[i];
 	}
 
 	checksum = temp;
@@ -71,7 +72,17 @@ bool LinkLayer::SendPacket(packet_t * packet)
 {
 	if (IsSynchronized())
 	{
-		if (thd_send->SendMessage((msg_t) packet))
+		if (chMBPost(&mbox, (msg_t) packet, TIME_IMMEDIATE ) == RDY_OK)
+			return true;
+	}
+	return false;
+}
+
+bool LinkLayer::SendPacketI(packet_t * packet)
+{
+	if (IsSynchronized())
+	{
+		if (chMBPostI(&mbox, (msg_t) packet) == RDY_OK)
 			return true;
 	}
 	return false;
@@ -104,14 +115,14 @@ uint8_t LinkLayer::IsSynchronized()
  */
 void LinkLayer::Callback(packet_t packet, bool checksumOk)
 {
+#ifdef DEBUG_RFM
 	static uint32_t pole[200];
 	static uint16_t idx = 0;
 	static uint16_t dobry = 0, spatny = 0;
 
-	if (idx > 100)
+	if (idx > 30)
 	{
 		asm("nop");
-		idx = 0;
 	}
 	else
 	{
@@ -122,6 +133,28 @@ void LinkLayer::Callback(packet_t packet, bool checksumOk)
 		pole[idx++] = chibios_rt::System::GetTime();
 		pole[idx++] = checksumOk;
 	}
+#endif
+
+}
+
+void LinkLayer::CallbackSend(packet_t * packet_, bool ok)
+{
+	static int be = 0 ,dobry = 0 ;
+
+	if (!ok)
+		be++;
+	else
+		dobry++;
+
+	static int j = 0;
+	for (int i = 0; i < rfm::LOAD_LENGTH; i++)
+		packet.data.b.load.load[i] = j++;
+
+#if RFM_MASTER
+	packet.Send();
+#else
+	packet.Send();
+#endif
 }
 
 } /* namespace rfm */

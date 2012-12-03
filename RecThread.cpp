@@ -35,7 +35,7 @@ bool RecThread::ReadPacket(packet_t & packet)
 	//adresy scvhálně obráceně kvuli checksumu
 	//funkce rf_read() zablokuje vlákno dokud nic nepřinde nebo dojde timeout
 
-	packet.DestAddr = rf_read(timeout); //ve skutečnosti adresa odesílatele
+	packet.data.b.DestAddr = rf_read(timeout); //ve skutečnosti adresa odesílatele
 	dest = rf_read(timeout); //ve skutečnosti adresa příjemce
 
 	if (dest != LinkLayer::GetAddress())
@@ -47,7 +47,7 @@ bool RecThread::ReadPacket(packet_t & packet)
 
 	for (int i = 0; i < LOAD_LENGTH; i++)
 	{
-		packet.load[i] = rf_read(timeout);
+		packet.data.b.load.load[i] = rf_read(timeout);
 	}
 	checksum = rf_read(timeout);
 
@@ -121,13 +121,17 @@ void RecThread::Mate()
 	}
 }
 
+
+#ifdef DEBUG_RFM
+uint16_t synchrocount = 0;
+#endif
 void RecThread::Read()
 {
 #ifdef DEBUG_RFM
-	static uint32_t pole[200];
-	static uint16_t index;
+	static uint32_t pole[1000];
+	static uint16_t index = 0;
 	static uint16_t timeout = 0;
-	static uint16_t dobry = 0, spatny = 0;
+	static uint16_t dobry = 0, spatny = 0, idx = 0;
 #endif
 	packet_t packet;
 	static uint8_t error_counter = 0;
@@ -137,10 +141,16 @@ void RecThread::Read()
 	rf_fifo_reset();
 
 #ifdef DEBUG_RFM
-	if (index > 100)
+	if (index > 700)
 	{
 		asm ("nop");
 		index = 0;
+	}
+
+	if (idx++ == 100)
+	{
+		asm ("nop");
+		idx = 0;
 	}
 #endif
 
@@ -181,16 +191,15 @@ void RecThread::Read()
 #endif
 			error_counter = 0;
 			offset = time2;
-			offset -= 5;
+			offset -= 7;
 			offset %= TIME;
 		}
 
-		//poslat chcal back pokud je naštelované
 		LinkLayer::Callback(packet, checksum);
 	}
 	else
 	{
-		error_counter++;
+		error_counter += 3;
 #ifdef DEBUG_RFM
 		pole[index++] = 50;
 		pole[index++] = chibios_rt::System::GetTime();
@@ -210,7 +219,9 @@ void RecThread::Read()
 void RecThread::Synchro()
 {
 	packet_t packet;
-
+#ifdef DEBUG_RFM
+	synchrocount++;
+#endif
 	mutex->Lock();
 	while (TRUE)
 	{
@@ -227,7 +238,7 @@ void RecThread::Synchro()
 		 * pak bude poslouchat dycky v tomhle čase za 400ms
 		 */
 		offset = chibios_rt::System::GetTime();
-		if (ReadPacket(packet) && packet.DestAddr == MASTER)
+		if (ReadPacket(packet) && packet.data.b.DestAddr == MASTER)
 		{
 
 			rf_sleep();
