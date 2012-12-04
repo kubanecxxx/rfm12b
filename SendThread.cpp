@@ -136,20 +136,27 @@ msg_t SendThread::Main(void)
 			while (!((RecThread::listen >> packet->data.b.DestAddr) & 1))
 			{
 				packet->data.b.DestAddr++;
-				if (packet->data.b.DestAddr == 8)
+				if (packet->data.b.DestAddr == MAX_UNITS)
 					packet->data.b.DestAddr = 0;
 			}
 			time = TIME_IMMEDIATE;
 		}
 
 		msg_t resp = chMBFetch(&mbox, &message, time);
-		packet = (packet_t *) message;
+		/*
+		 * pokud přišla zpráva tak ju načte do paketu
+		 */
+		if (resp == RDY_OK)
+			packet = (packet_t *) message;
 		bool neco = false;
 
 		/*
 		 * tady to zase postne zpátky do fronty pokud se mu to nehodi
 		 * do správnyho času a musel by zahodit idle pakety ktery jsou před
 		 * uživatelskym
+		 *
+		 * v připadě slave tahle podminka nebude nikdy splněna protože
+		 * defaultně je idle adresa -1, která se nikdy nezmění
 		 */
 		if (resp == RDY_OK
 				&& packet->data.b.DestAddr != idle_packet.data.b.DestAddr)
@@ -180,7 +187,10 @@ msg_t SendThread::Main(void)
 		 * vyhodi callback že už to skončilo
 		 */
 		if (resp == RDY_OK)
+		{
 			LinkLayer::CallbackSend(packet, neco);
+			//uvolnit bazén paketu
+		}
 	}
 
 	return 0;

@@ -89,7 +89,7 @@ msg_t RecThread::Main(void)
 
 void RecThread::Mate()
 {
-	static uint16_t temp = 0;
+	static uint8_t i = 0;
 	/*
 	 * projet všechny na kteréch má poslochat pokud je to master,
 	 * pokud je to slave tak poslocha jenom na svym timeslotu
@@ -100,19 +100,15 @@ void RecThread::Mate()
 		/*
 		 * tady musi projet všechny adresy na kteréch má poslochat
 		 * adresy bude mit zatim zadany
-		 * v budocnu by se udělal nějaké autodiscover
 		 */
-		if (temp == 0)
-			temp = listen;
-
-		uint8_t i = 0;
-		while (!(temp & 1))
+		while (!((listen >> i) & 1))
 		{
-			temp >>= 1;
 			i++;
+			if (i == MAX_UNITS)
+				i = 0;
 		}
-		temp >>= 1;
 		Wait(i);
+		i++;
 	}
 	else
 	{
@@ -120,7 +116,6 @@ void RecThread::Mate()
 		Wait(LinkLayer::GetAddress());
 	}
 }
-
 
 #ifdef DEBUG_RFM
 uint16_t synchrocount = 0;
@@ -271,8 +266,14 @@ void RecThread::Wait(uint8_t slave_address)
 		/*
 		 * master přijimá v druhé sadě slotů podle adresy vysílače (slave)
 		 */
-		time = (chibios_rt::System::GetTime() / TIME + 1) * TIME + TIME / 2
-				+ slave_address * TIMESLOT;
+
+		time = chibios_rt::System::GetTime();
+		systime_t temp = time % TIME;
+		time -= temp;
+		time += slave_address * TIMESLOT + TIME / 2;
+
+		if (time < chibios_rt::System::GetTime())
+			time += TIME;
 	}
 	else
 	{
