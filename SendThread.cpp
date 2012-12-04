@@ -11,8 +11,8 @@
 namespace rfm
 {
 
-static msg_t mbuffer[10];
-MAILBOX_DECL(mbox, mbuffer, 10);
+static msg_t mbuffer[PACKET_BUFFER_LENGTH];
+MAILBOX_DECL(mbox, mbuffer, PACKET_BUFFER_LENGTH);
 
 namespace threads
 {

@@ -20,15 +20,20 @@ namespace rfm
 const uint8_t TIMESLOT = 25;
 const uint8_t LOAD_LENGTH = 8;
 const uint8_t MAX_UNITS = 8;
+const uint8_t PACKET_BUFFER_LENGTH = 10;
 const uint8_t PACKET_LENGTH = LOAD_LENGTH + 1;
 const uint16_t TIME = TIMESLOT * MAX_UNITS * 2;
 const int8_t MASTER = 1;
+
+class LinkLayer;
 }
 
 /*
  * include set
  */
 
+#include "packett.h"
+#include "simpleStack.h"
 #include "LinkLayer.h"
 #include "RecThread.h"
 #include "SendThread.h"

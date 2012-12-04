@@ -27,6 +27,7 @@ private:
 	static void Read();
 	static void Synchro();
 	static void Mate();
+	static uint8_t listeningAddress;
 
 public:
 

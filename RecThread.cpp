@@ -18,6 +18,7 @@ uint32_t RecThread::offset = 0;
 uint16_t RecThread::listen = 0;
 uint8_t RecThread::synchronized = 0;
 chibios_rt::Mutex * RecThread::mutex;
+uint8_t RecThread::listeningAddress = 0;
 
 RecThread::RecThread() :
 		EnhancedThread("rfm receive", NORMALPRIO)
@@ -81,6 +82,7 @@ msg_t RecThread::Main(void)
 			{
 				Read();
 				mutex->Unlock();
+				listeningAddress++;
 			}
 		}
 	}
@@ -89,7 +91,6 @@ msg_t RecThread::Main(void)
 
 void RecThread::Mate()
 {
-	static uint8_t i = 0;
 	/*
 	 * projet všechny na kteréch má poslochat pokud je to master,
 	 * pokud je to slave tak poslocha jenom na svym timeslotu
@@ -101,14 +102,13 @@ void RecThread::Mate()
 		 * tady musi projet všechny adresy na kteréch má poslochat
 		 * adresy bude mit zatim zadany
 		 */
-		while (!((listen >> i) & 1))
+		while (!((listen >> listeningAddress) & 1))
 		{
-			i++;
-			if (i == MAX_UNITS)
-				i = 0;
+			listeningAddress++;
+			if (listeningAddress == MAX_UNITS)
+				listeningAddress = 0;
 		}
-		Wait(i);
-		i++;
+		Wait(listeningAddress);
 	}
 	else
 	{
@@ -184,17 +184,97 @@ void RecThread::Read()
 #ifdef DEBUG_RFM
 			dobry++;
 #endif
+			/*
+			 * znova se naladi pokud
+			 * přijal správně
+			 */
 			error_counter = 0;
 			offset = time2;
 			offset -= 7;
 			offset %= TIME;
 		}
 
-		LinkLayer::Callback(packet, checksum);
+		/*
+		 * řešení zpracování idle paketu
+		 * pokud master, tak očekává idleok a už neodešle
+		 * nic zpátky
+		 *
+		 * pokud slave tak idle paket rovnou zpracuje a hned odešle
+		 * odpověď na idle paket, aby o něm master věděl a počital
+		 * s nim
+		 *
+		 * vymyšleno o pár řádků dole - při timeoutu hodi callback
+		 * vymyslet mechanismus callbacku pokud nic neodpoví
+		 * ten by mohl fungovat tak že dokud slave neodpovi tak neuvolni
+		 * paket z linklayeru a nechá ho furt ve frontě a pak se pošle znovu dotaz
+		 * což už je arq pro get/set ale zatim nevim jak na idle paket
+		 * ten se bude muset řešit někde přimo tady
+		 * jenom hodit nahoru callback že slave neodpověděl na idle ať user vi že
+		 * slave neodpovidá
+		 * spiš se to musi řešit ještě předtimhle protože určitě dojde k timeoutu
+		 */
+		if (LinkLayer::IsMaster())
+		{
+			/*
+			 * master
+			 *
+			 * pokud přinde odpověď na idle paket idleok tak neudělá nic
+			 * pokud přinde cokoli jinyho tak hodi callback zpátky userovi do linklayer
+			 * v callbacku se nastavi zase modbus, připadně se hodi dalši callback userovi
+			 */
+			if (packet.IsIdleOk())
+			{
+
+			}
+			else
+			{
+				LinkLayer::Callback(packet, checksum, listeningAddress);
+			}
+		}
+		else
+		{
+			/*
+			 * případ slava
+			 * pokud přinde v pořádku idle paket tak na něho rovnou odpovi
+			 * přimo tady ve vlákně ani nejde callback nahoru
+			 *
+			 * pokud je to normální paket tan hodi callback zpátky
+			 * do linklayer
+			 */
+			if (packet.IsIdle() && checksum)
+			{
+				packet.AnswerIdle();
+				packet.Send();
+			}
+			else
+			{
+				/*
+				 * v callbacku už si uživatel vymysli jak paket zpracuje
+				 * nastavi věci v modbusu, připadně pošle dalši callback
+				 * kterej už bude v polu...
+				 */
+				LinkLayer::Callback(packet, checksum, listeningAddress);
+			}
+		}
 	}
 	else
 	{
+		/*
+		 * timeout
+		 * slave použivá error_counter
+		 * pokud je jich moc tak se  znova synchronizuje
+		 * timeout má větši váhu než jenom chybné paket
+		 */
 		error_counter += 3;
+
+		/*
+		 * pokud máster a bude timeout tak určitě chybí odpověď minimálně na idle
+		 * paket takže se hodi userovi callback že odpověď je v prdeli a ne tady
+		 */
+		if (LinkLayer::IsMaster())
+		{
+			LinkLayer::CallbackNok(listeningAddress);
+		}
 #ifdef DEBUG_RFM
 		pole[index++] = 50;
 		pole[index++] = chibios_rt::System::GetTime();
@@ -211,6 +291,11 @@ void RecThread::Read()
 	rf_writecmd(0);
 }
 
+/**
+ * @brief volá se jenom v připadě slave
+ * a zasynchronizuje se na správnej čas podle svoji adresy
+ * a přijatéch paketu ktery sou jenom pro něho
+ */
 void RecThread::Synchro()
 {
 	packet_t packet;
@@ -246,7 +331,22 @@ void RecThread::Synchro()
 
 			mutex->Unlock();
 
-			LinkLayer::Callback(packet, true);
+			/*
+			 * rovnou zpracuje paket
+			 * pokud idle tak na něho odpoví
+			 * pokud nějaké jiné tak ho rovnou zpracuje
+			 * vyšší vrstva
+			 */
+			if (packet.IsIdle())
+			{
+				packet.AnswerIdle();
+				packet.Send();
+			}
+			else
+			{
+				//na adrese nezáleži protože ta má vyznam jenom pro mástra
+				LinkLayer::Callback(packet, true, 0);
+			}
 
 			break;
 		}
