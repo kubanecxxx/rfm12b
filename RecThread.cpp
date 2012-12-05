@@ -168,10 +168,21 @@ void RecThread::Read()
 		pole[index++] = chibios_rt::System::GetTime();
 #endif
 		bool checksum = ReadPacket(packet);
+		bool be;
+		if (LinkLayer::IsMaster())
+			be = (listeningAddress == packet.data.b.DestAddr);
+		else
+			be = (MASTER == packet.data.b.DestAddr);
+
+		checksum = be & checksum;
 #ifdef DEBUG_RFM
 		pole[index++] = 7;
 		pole[index++] = chibios_rt::System::GetTime();
 #endif
+		/*
+		 * kontrola ješli je paket v pořádku
+		 * a jestli je pro správnyho
+		 */
 		if (!checksum)
 		{
 			error_counter++;

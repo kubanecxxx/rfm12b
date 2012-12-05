@@ -30,8 +30,6 @@ public:
 	/*
 	 * vrátí false pokud není synchronizace a nepodařilo se poslat paket
 	 * vrátí true pokud všecko v pořádku
-	 *
-	 * @todo vymyslet kopirování, buď tady nebo když se dává do mailboxu
 	 */
 	bool Send();
 	bool SendI();
@@ -78,14 +76,7 @@ public:
 	{
 		data.b.load.b.Command = IDLE;
 	}
-	inline bool IsIdle()
-	{
-		return (data.b.load.b.Command == IDLE);
-	}
-	inline bool IsIdleOk()
-	{
-		return (data.b.load.b.Command == IDLEOK);
-	}
+
 	/**
 	 * @brief nastaví paket na příkaz SET (v masteru)
 	 */
@@ -155,6 +146,46 @@ public:
 	{
 		return (command_t) data.b.load.b.Command;
 	}
+
+	/**
+	 * @defgroup metody pro zjištění typu paketu
+	 * @{
+	 */
+	inline bool IsIdle() const
+	{
+		return (data.b.load.b.Command == IDLE);
+	}
+	inline bool IsIdleOk() const
+	{
+		return (data.b.load.b.Command == IDLEOK);
+	}
+	inline bool IsGet() const
+	{
+		return (data.b.load.b.Command == GET);
+	}
+	inline bool IsSet() const
+	{
+		return (data.b.load.b.Command == SET);
+	}
+	inline bool IsGetOK() const
+	{
+		return (data.b.load.b.Command == OKGET);
+	}
+	inline bool IsSetOK() const
+	{
+		return (data.b.load.b.Command == OKSET);
+	}
+	inline bool IsGetNok() const
+	{
+		return (data.b.load.b.Command == NOKGET);
+	}
+	inline bool IsSetNok() const
+	{
+		return (data.b.load.b.Command == NOKSET);
+	}
+	/**
+	 * @}
+	 */
 };
 
 } /* namespace rfm */

@@ -16,7 +16,7 @@ extern Mailbox mbox;
 int8_t LinkLayer::SourceAddress = -1;
 threads::SendThread * LinkLayer::thd_send;
 threads::RecThread * LinkLayer::thd_rec;
-simpleStack<PACKET_BUFFER_LENGTH, packet_t> LinkLayer::buffer2;
+LinkBuffer LinkLayer::buffer2;
 
 void LinkLayer::Init(uint8_t address)
 {
@@ -32,6 +32,8 @@ void LinkLayer::Init(uint8_t address)
 		thd_send = new threads::SendThread;
 		thd_rec = new threads::RecThread();
 	}
+
+	buffer2.clear();
 }
 
 void LinkLayer::Init(uint8_t address, uint16_t listen)
@@ -50,6 +52,7 @@ bool LinkLayer::SendPacket(packet_t * packet)
 {
 	if (IsSynchronized())
 	{
+		packet = AllocPacket(packet);
 		if (chMBPost(&mbox, (msg_t) packet, TIME_IMMEDIATE ) == RDY_OK)
 			return true;
 	}
@@ -60,6 +63,7 @@ bool LinkLayer::SendPacketI(packet_t * packet)
 {
 	if (IsSynchronized())
 	{
+		packet = AllocPacket(packet);
 		if (chMBPostI(&mbox, (msg_t) packet) == RDY_OK)
 			return true;
 	}
@@ -122,45 +126,52 @@ void LinkLayer::Callback(packet_t packet, bool checksumOk, uint8_t ListenAddr)
 	}
 #endif
 
-	if (IsMaster())
+	/*
+	 * spárování paketu co přišel s tim co je ve frontě
+	 */
+	packet_t * packet_ = buffer2.process(ListenAddr);
+
+	if (checksumOk)
 	{
-		if (checksumOk)
+
+		/*
+		 * nechat paket zpracovat vyšší vrstvu
+		 * a pak ho uvolnit
+		 */
+		ApplicationLayer::processPacket(&packet);
+		FreePacket(packet_);
+	}
+	else
+	{
+		/*
+		 * spárovat pakety packet + ten co je v buffer2
+		 * a vytáhnout ho z buffer2 a hodit znova do fronty
+		 * podle adresy z které to mělo přijit
+		 *
+		 * projit pakety v buffer2 a pokud tam najde paket s touhle adresou
+		 * tak si ho vyptat znova, mělo by se začinat od začátku zásobníku a ne od
+		 * konce - FIFO
+		 *
+		 * arq
+		 */
+		if (IsMaster())
 		{
-			/*
-			 * rozeznat paket, spárovat ho s bufferem
-			 * protože přinde odpověď ok/nok get/set
-			 * uvolnit buffer
-			 * zpracovat paket
-			 * nastavit modbus pokud to bylo get
-			 * hodit callback
-			 * ok/nok dat do callbacku
-			 * uvolnit uplně paket
-			 */
+			if (packet_ != NULL)
+			{
+				if (chMBPostAhead(&mbox, (msg_t) packet_,
+						TIME_IMMEDIATE ) != RDY_OK)
+					ApplicationLayer::processArqErrorCb();
+			}
 		}
 		else
 		{
 			/*
-			 * spárovat pakety packet + ten co je v buffer2
-			 * a vytáhnout ho z buffer2 a hodit znova do fronty
-			 * podle adresy z které to mělo přijit
-			 *
+			 * slave jenom uvolni a kašle na to
+			 * máster se ho někdy zeptá sám znova
 			 */
+			FreePacket(packet_);
 		}
-	}
-	else
-	{
-		if (checksumOk)
-		{
-			/*
-			 * rozeznat paket
-			 * nastavit modbus
-			 * hodit callback
-			 * hodit odpověď pro mastera
-			 */
-		}
-		/*
-		 * pokud je checksum špatně tak paket zahodit a master se zeptá znova
-		 */
+
 	}
 }
 
@@ -184,11 +195,20 @@ void LinkLayer::CallbackSend(packet_t * packet_, bool ok)
 	{
 		if (ok)
 		{
-			buffer2.push(packet_);
+			buffer2.pushBack(packet_);
 		}
 		else
 		{
-			chMBPostAhead(&mbox, (msg_t) packet_, TIME_IMMEDIATE );
+			/*
+			 * hodi paket znova do fronty ale čeká až bude prázdná,
+			 * sice se rozhodi synchronizace ale bude 100% splněno
+			 * arq
+			 *
+			 * nedá se to tak udělat protože vlákno by zamčelo samo
+			 * sebe a už by se to nerozjelo
+			 */
+			if (chMBPostAhead(&mbox, (msg_t) packet_, TIME_IMMEDIATE ) != RDY_OK)
+				ApplicationLayer::processArqErrorCb();
 		}
 	}
 	else
@@ -196,6 +216,7 @@ void LinkLayer::CallbackSend(packet_t * packet_, bool ok)
 		/*
 		 * slave - rovnou uvolnit paket a kašlat na to
 		 */
+		FreePacket(packet_);
 	}
 }
 
@@ -212,8 +233,34 @@ void LinkLayer::CallbackNok(uint8_t slaveAddress)
 	 * tady muže poznat podle toho co má ve frontě jesli to byl jenom idle
 	 * paket nebo nějaké vic crucial a muže ho nechat zopakovat
 	 *
-	 * taky se dá využit buffer2
+	 * taky se dá využit buffer2 - projit ho celej jesli tam neni nějaké packet
+	 * s touhle adresou a dyžtak si ho vyptat znova mělo by se začit od začátku zásobníku
+	 * ne od konce FIFO
 	 */
+	packet_t * packet = buffer2.process(slaveAddress);
+
+	/*
+	 * pokud tam paket nebyl tak se posral asi jenom idle paket
+	 */
+	if (packet != NULL)
+	{
+		chMBPostAhead(&mbox, (msg_t) packet, TIME_IMMEDIATE );
+	}
+
+	ApplicationLayer::processTimeoutErrorCb(slaveAddress);
+}
+
+void LinkLayer::FreePacket(packet_t * pack)
+{
+
+}
+
+/*
+ * alokuje místo pro paket, nahrne ho tam a vrátí pointer na
+ * zkopirovanej paket v nové paměti
+ */
+packet_t * LinkLayer::AllocPacket(packet_t * source)
+{
 
 }
 

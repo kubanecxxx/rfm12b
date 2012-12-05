@@ -33,7 +33,7 @@ class LinkLayer;
  */
 
 #include "packett.h"
-#include "simpleStack.h"
+#include "simpleQueue.h"
 #include "LinkLayer.h"
 #include "RecThread.h"
 #include "SendThread.h"
