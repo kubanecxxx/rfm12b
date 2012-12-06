@@ -85,6 +85,9 @@ void ApplicationLayer::processPacket(packet_t * packet)
 	/*
 	 * zbytek muže nastat jenom u mastera
 	 */
+	/**
+	 * @todo vymyslet jak adresovat modbus pole
+	 */
 	else if (packet->IsGetOK())
 	{
 
@@ -93,6 +96,10 @@ void ApplicationLayer::processPacket(packet_t * packet)
 	{
 
 	}
+	/**
+	 * @todo vymyslet systém volání cb pro tyhle hlášky
+	 * co mu cpat do parametru
+	 */
 	else if (packet->IsSetNok())
 	{
 
