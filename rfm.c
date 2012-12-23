@@ -16,7 +16,6 @@ unsigned int rf_writecmd(unsigned int cmd)
 void rf_init(void)
 {
 	low_level_spi_init();
-
 #ifdef RFM_868
 	rf_writecmd(0x80E7); //EL,EF,868band,12.0pF
 	rf_writecmd(0xA640); //frequency select

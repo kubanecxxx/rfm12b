@@ -27,6 +27,13 @@ void LinkLayer::Init(uint8_t address)
 		return;
 	}
 
+	rf_init();
+	rf_fifo_reset();
+	rf_writecmd(0);
+	rf_writecmd(0);
+	rf_writecmd(0);
+	rf_sleep();
+
 	if (address < 8)
 	{
 		SourceAddress = address;
