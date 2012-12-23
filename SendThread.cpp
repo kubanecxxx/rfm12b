@@ -159,7 +159,8 @@ msg_t SendThread::Main(void)
 		 * defaultně je idle adresa -1, která se nikdy nezmění
 		 */
 		if (resp == RDY_OK
-				&& packet->data.b.DestAddr != idle_packet.data.b.DestAddr)
+				&& packet->data.b.DestAddr != idle_packet.data.b.DestAddr
+				&& LinkLayer::IsMaster())
 		{
 			resp = !RDY_OK;
 			chMBPostAhead(&mbox, (msg_t) packet, TIME_IMMEDIATE );
@@ -176,7 +177,8 @@ msg_t SendThread::Main(void)
 		 */
 		if (RecThread::mutex->TryLock() && RecThread::IsSynchronized())
 		{
-			palTogglePad(GPIOD, 15);
+			if (!packet->IsIdle() && !packet->IsIdleOk())
+				palTogglePad(GPIOD, 15);
 			Send(*packet);
 			RecThread::mutex->Unlock();
 			neco = true;

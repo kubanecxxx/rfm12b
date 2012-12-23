@@ -67,7 +67,7 @@ public:
 		read = 0;
 		write = 0;
 	}
-private:
+protected:
 	CO buffer[T];
 	uint8_t write;
 	uint8_t read;

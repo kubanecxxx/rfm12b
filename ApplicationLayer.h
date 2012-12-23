@@ -41,10 +41,11 @@ public:
 	static void Init(uint8_t address, uint16_t slaves,
 			const error_cb_t * error_cb, const user_callbacks_t * user_cb,
 			uint16_t count);
+	static void Set(uint8_t slave_address, uint8_t modbus_address,
+			uint32_t data);
+	static void Get(uint8_t slave_address, uint8_t modbus_address);
 
 private:
-	static void Send(uint8_t slave_address, uint8_t modbus_address,
-			user_cb_packet_t type, uint32_t data);
 	friend class LinkLayer;
 	static const error_cb_t * error_callbacks;
 	static const user_callbacks_t * user_callbacks;

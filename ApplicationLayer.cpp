@@ -68,7 +68,8 @@ void ApplicationLayer::processPacket(packet_t * packet)
 		packet_t pak(*packet);
 		pak.AnswerGet(data, ok);
 		pak.Send();
-
+		processUserCB(ok, GET, packet->data.b.DestAddr, packet->GetAddress(),
+				packet->GetData());
 	}
 	else if (packet->IsSet())
 	{
@@ -81,6 +82,8 @@ void ApplicationLayer::processPacket(packet_t * packet)
 		packet_t pak(*packet);
 		pak.AnswerSet(ok);
 		pak.Send();
+		processUserCB(ok, SET, packet->data.b.DestAddr, packet->GetAddress(),
+				packet->GetData());
 	}
 	/*
 	 * zbytek muže nastat jenom u mastera
@@ -90,22 +93,23 @@ void ApplicationLayer::processPacket(packet_t * packet)
 	 */
 	else if (packet->IsGetOK())
 	{
-
+		processUserCB(true, GET, packet->data.b.DestAddr, packet->GetAddress(),
+				packet->GetData());
 	}
 	else if (packet->IsSetOK())
 	{
-
+		processUserCB(true, SET, packet->data.b.DestAddr, packet->GetAddress(),
+				packet->GetData());
 	}
-	/**
-	 * @todo vymyslet systém volání cb pro tyhle hlášky
-	 * co mu cpat do parametru
-	 */
 	else if (packet->IsSetNok())
 	{
-
+		processUserCB(false, SET, packet->data.b.DestAddr, packet->GetAddress(),
+				packet->GetData());
 	}
 	else if (packet->IsGetNok())
 	{
+		processUserCB(false, GET, packet->data.b.DestAddr, packet->GetAddress(),
+				packet->GetData());
 
 	}
 }
@@ -133,10 +137,25 @@ uint32_t ApplicationLayer::getUserData(uint16_t address)
 void ApplicationLayer::processUserCB(bool ok, user_cb_packet_t type,
 		uint8_t address, uint16_t modbus_addr, uint32_t modbus_data)
 {
-	if (user_callbacks && user_callbacks[address].cb)
+	if (user_callbacks && user_callbacks[modbus_addr].cb)
 	{
-		user_callbacks[address].cb(ok, type, address, modbus_addr, modbus_data);
+		user_callbacks[modbus_addr].cb(ok, type, address, modbus_addr, modbus_data);
 	}
+}
+
+void ApplicationLayer::Set(uint8_t slave_address, uint8_t modbus_address,
+		uint32_t data)
+{
+	packet_t packet;
+	packet.Set(slave_address, modbus_address, data);
+	packet.Send();
+}
+
+void ApplicationLayer::Get(uint8_t slave_address, uint8_t modbus_address)
+{
+	packet_t packet;
+	packet.Get(slave_address, modbus_address);
+	packet.Send();
 }
 
 }

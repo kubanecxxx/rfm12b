@@ -235,7 +235,7 @@ void RecThread::Read()
 			 */
 			if (packet.IsIdleOk())
 			{
-
+				asm("nop");
 			}
 			else
 			{
@@ -256,6 +256,17 @@ void RecThread::Read()
 			{
 				packet.AnswerIdle();
 				packet.Send();
+#ifdef DEBUG_RFM
+				const uint8_t size = 50;
+				static uint32_t pole[size];
+				static uint8_t index = 0;
+				pole[index++] = chibios_rt::System::GetTime();
+				if (index == size)
+				{
+					asm("nop");
+					index = 0;
+				}
+#endif
 			}
 			else
 			{

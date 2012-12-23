@@ -12,6 +12,8 @@ extern rfm::packet_t packet;
 namespace rfm
 {
 extern Mailbox mbox;
+static packet_t pakety[PACKET_BUFFER_LENGTH] __attribute__((aligned(sizeof(stkalign_t))));
+MEMORYPOOL_DECL(packet_pool,sizeof(packet_t),NULL);
 
 int8_t LinkLayer::SourceAddress = -1;
 threads::SendThread * LinkLayer::thd_send;
@@ -34,6 +36,7 @@ void LinkLayer::Init(uint8_t address)
 	}
 
 	buffer2.clear();
+	chPoolLoadArray(&packet_pool, pakety, PACKET_BUFFER_LENGTH);
 }
 
 void LinkLayer::Init(uint8_t address, uint16_t listen)
@@ -46,7 +49,6 @@ void LinkLayer::Init(uint8_t address, uint16_t listen)
  * vrátí true pokud se všecko povede
  * false pokud je mimo synchro nebo nedostal mutex
  *
- * @todo vymyslet kopirování paketu někam do bufferu + alokace
  */
 bool LinkLayer::SendPacket(packet_t * packet)
 {
@@ -169,6 +171,7 @@ void LinkLayer::Callback(packet_t packet, bool checksumOk, uint8_t ListenAddr)
 			 * slave jenom uvolni a kašle na to
 			 * máster se ho někdy zeptá sám znova
 			 */
+
 			FreePacket(packet_);
 		}
 
@@ -229,6 +232,15 @@ void LinkLayer::CallbackSend(packet_t * packet_, bool ok)
  */
 void LinkLayer::CallbackNok(uint8_t slaveAddress)
 {
+#ifdef DEBUG_RFM
+	static systime_t pole[10];
+	static uint16_t index = 0;
+	pole[index++] = chibios_rt::System::GetTime();
+	if (index > 10)
+	{
+		index = 0;
+	}
+#endif
 	/*
 	 * tady muže poznat podle toho co má ve frontě jesli to byl jenom idle
 	 * paket nebo nějaké vic crucial a muže ho nechat zopakovat
@@ -245,14 +257,21 @@ void LinkLayer::CallbackNok(uint8_t slaveAddress)
 	if (packet != NULL)
 	{
 		chMBPostAhead(&mbox, (msg_t) packet, TIME_IMMEDIATE );
+		//paket se strči do mailboxu a v callback sendu se uloži do bufferu..
+		//buffer2.pushBack(packet);
 	}
 
 	ApplicationLayer::processTimeoutErrorCb(slaveAddress);
 }
 
-void LinkLayer::FreePacket(packet_t * pack)
+bool LinkLayer::FreePacket(packet_t * pack)
 {
-
+	if (pack)
+	{
+		chPoolFree(&packet_pool, pack);
+		return true;
+	}
+	return false;
 }
 
 /*
@@ -261,7 +280,11 @@ void LinkLayer::FreePacket(packet_t * pack)
  */
 packet_t * LinkLayer::AllocPacket(packet_t * source)
 {
+	packet_t * ret = (packet_t *) chPoolAlloc(&packet_pool);
+	if (ret != NULL)
+		*ret = *source;
 
+	return ret;
 }
 
 } /* namespace rfm */

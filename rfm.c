@@ -59,6 +59,10 @@ void rf_send(unsigned char data)
 //-----------------------------------
 void rf_sleep(void)
 {
+#ifdef RFM_INDICATE_ON
+	palClearPad(GPIOD,14);
+	palClearPad(GPIOD,12);
+#endif
 	rf_writecmd(0x8201);
 	rf_writecmd(0x0000);
 }
@@ -67,6 +71,9 @@ void rf_sleep(void)
 //-----------------------------------
 void rf_transmitter(void)
 {
+#ifdef RFM_INDICATE_ON
+	palSetPad(GPIOD,12);
+#endif
 	rf_writecmd(0x8239); //!er,!ebb,ET,ES,EX,!eb,!ew,DC
 	rf_writecmd(0x0000);
 }
@@ -75,6 +82,9 @@ void rf_transmitter(void)
 //-----------------------------------
 void rf_receiver(void)
 {
+#ifdef RFM_INDICATE_ON
+	palSetPad(GPIOD,14);
+#endif
 	rf_writecmd(0x8299); //er,!ebb,!ET,ES,EX,!eb,!ew,DC (bug was here)
 	rf_writecmd(0x0000);
 }

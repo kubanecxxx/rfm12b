@@ -34,7 +34,9 @@ public:
 
 		for (int i = 0; i < cant; i++)
 		{
+
 			temp = popFront();
+
 			if (temp->data.b.DestAddr == address)
 			{
 				ret = temp;
@@ -78,7 +80,7 @@ private:
 	friend class threads::SendThread;
 	static LinkBuffer buffer2;
 	static packet_t * AllocPacket(packet_t * source);
-	static void FreePacket(packet_t * packet);
+	static bool FreePacket(packet_t * packet);
 };
 
 } /* namespace rfm */
