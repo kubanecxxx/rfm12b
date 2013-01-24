@@ -13,7 +13,7 @@ namespace rfm
 {
 extern Mailbox mbox;
 static packet_t pakety[PACKET_BUFFER_LENGTH] __attribute__((aligned(sizeof(stkalign_t))));
-MEMORYPOOL_DECL(packet_pool,sizeof(packet_t),NULL);
+MEMORYPOOL_DECL(packet_pool, sizeof(packet_t), NULL);
 
 int8_t LinkLayer::SourceAddress = -1;
 threads::SendThread * LinkLayer::thd_send;
@@ -62,8 +62,9 @@ bool LinkLayer::SendPacket(packet_t * packet)
 	if (IsSynchronized())
 	{
 		packet = AllocPacket(packet);
-		if (chMBPost(&mbox, (msg_t) packet, TIME_IMMEDIATE ) == RDY_OK)
-			return true;
+		if (packet)
+			if (chMBPost(&mbox, (msg_t) packet, TIME_IMMEDIATE ) == RDY_OK)
+				return true;
 	}
 	return false;
 }
