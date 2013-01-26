@@ -63,8 +63,16 @@ bool LinkLayer::SendPacket(packet_t * packet)
 	{
 		packet = AllocPacket(packet);
 		if (packet)
+		{
 			if (chMBPost(&mbox, (msg_t) packet, TIME_IMMEDIATE ) == RDY_OK)
 				return true;
+		}
+		else
+		{
+			chMBReset(&mbox);
+			chPoolInit(&packet_pool,sizeof(packet_t),NULL);
+			chPoolLoadArray(&packet_pool,&pakety,PACKET_BUFFER_LENGTH);
+		}
 	}
 	return false;
 }
