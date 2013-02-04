@@ -66,9 +66,15 @@ msg_t RecThread::Main(void)
 		if (!LinkLayer::IsMaster())
 		{
 			//blokující funkce, vypadne až bude synchronizace správně
+#ifdef RFM_INDICATE_ON
 			palClearPad(GPIOD, 13);
+#endif
+			DESYNCHRONIZED_HOOK();
 			Synchro();
+			SYNCHRONIZED_HOOK();
+#ifdef RFM_INDICATE_ON
 			palSetPad(GPIOD, 13);
+#endif
 		}
 
 		synchronized = 1;

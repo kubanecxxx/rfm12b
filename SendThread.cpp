@@ -177,8 +177,10 @@ msg_t SendThread::Main(void)
 		 */
 		if (RecThread::mutex->TryLock() && RecThread::IsSynchronized())
 		{
+#ifdef RFM_INDICATE_ON
 			if (!packet->IsIdle() && !packet->IsIdleOk())
 				palTogglePad(GPIOD, 15);
+#endif
 			Send(*packet);
 			RecThread::mutex->Unlock();
 			neco = true;
